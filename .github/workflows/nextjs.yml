@@ -1,5 +1,5 @@
 
-# Workflow Version: 1.1.2
+# Workflow Version: 1.1.3
 name: Deploy to Cloudflare Workers
 
 on:
@@ -28,7 +28,9 @@ jobs:
 
       - name: Update wrangler.toml with dynamic name
         run: |
-          sed -i "s/^name = .*/name = "${WORKER_NAME}"/" wrangler.toml
+          # Clean up worker name by replacing dots with hyphens
+          CLEAN_WORKER_NAME=$(echo "${WORKER_NAME}" | sed 's/\./-/g')
+          sed -i "s/^name = .*/name = "${CLEAN_WORKER_NAME}"/" wrangler.toml
 
       - name: Build and Deploy
         run: bun run deploy
@@ -38,4 +40,6 @@ jobs:
 
       - name: Output deployment URL
         run: |
-          echo "🚀 Deployed to: https://${WORKER_NAME}.magnusson27.workers.dev"
+          # Clean up worker name for URL output too
+          CLEAN_WORKER_NAME=$(echo "${WORKER_NAME}" | sed 's/\./-/g')
+          echo "🚀 Deployed to: https://${CLEAN_WORKER_NAME}.magnusson27.workers.dev"
