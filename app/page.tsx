@@ -30,7 +30,7 @@ export default function Home() {
     },
     {
       icon: <Globe className="h-8 w-8" />,
-      title: "Global Scale",
+      title: "Global Scales",
       description: "Deploy worldwide with edge computing capabilities"
     }
   ]
