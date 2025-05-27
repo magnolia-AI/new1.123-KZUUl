@@ -1,5 +1,5 @@
 
-# Workflow Version: 2.0.3
+# Workflow Version: 2.0.2
 name: Deploy to Cloudflare Workers
 
 on:
@@ -36,7 +36,7 @@ jobs:
             echo "This secret should contain the unique worker name for this project"
             exit 1
           fi
-          echo "✅ Worker name is set (length: ${#WORKER_NAME})"
+          echo "✅ Using worker name: $WORKER_NAME"
 
       - name: Debug wrangler.toml before update
         run: |
@@ -48,37 +48,30 @@ jobs:
 
       - name: Update wrangler.toml with secure worker name
         run: |
-          echo "📝 Updating wrangler.toml with worker name (length: ${#WORKER_NAME})"
+          echo "📝 Updating wrangler.toml with worker name: $WORKER_NAME"
           
           # Create a backup
           cp wrangler.toml wrangler.toml.backup
           
-          # Use a temporary file to avoid shell expansion issues
-          echo "$WORKER_NAME" > /tmp/worker_name.txt
-          WORKER_NAME_FROM_FILE=$(cat /tmp/worker_name.txt)
-          
-          # Try multiple patterns to update the name using the file content
+          # Try multiple patterns to update the name
           if grep -q "^name = " wrangler.toml; then
             echo "Found 'name = ' pattern, updating..."
-            sed -i "s/^name = .*/name = "$WORKER_NAME_FROM_FILE"/" wrangler.toml
+            sed -i "s/^name = .*/name = "$WORKER_NAME"/" wrangler.toml
           elif grep -q "^name:" wrangler.toml; then
             echo "Found 'name:' pattern, updating..."
-            sed -i "s/^name:.*/name = "$WORKER_NAME_FROM_FILE"/" wrangler.toml
+            sed -i "s/^name:.*/name = "$WORKER_NAME"/" wrangler.toml
           elif grep -q "name" wrangler.toml; then
             echo "Found 'name' somewhere, trying to replace..."
-            sed -i "s/name = ".*"/name = "$WORKER_NAME_FROM_FILE"/" wrangler.toml
-            sed -i "s/name = '.*'/name = "$WORKER_NAME_FROM_FILE"/" wrangler.toml
-            sed -i "s/name: ".*"/name = "$WORKER_NAME_FROM_FILE"/" wrangler.toml
-            sed -i "s/name: '.*'/name = "$WORKER_NAME_FROM_FILE"/" wrangler.toml
+            sed -i "s/name = ".*"/name = "$WORKER_NAME"/" wrangler.toml
+            sed -i "s/name = '.*'/name = "$WORKER_NAME"/" wrangler.toml
+            sed -i "s/name: ".*"/name = "$WORKER_NAME"/" wrangler.toml
+            sed -i "s/name: '.*'/name = "$WORKER_NAME"/" wrangler.toml
           else
             echo "No name setting found, adding it at the top..."
-            echo "name = "$WORKER_NAME_FROM_FILE"" > temp_wrangler.toml
+            echo "name = "$WORKER_NAME"" > temp_wrangler.toml
             cat wrangler.toml >> temp_wrangler.toml
             mv temp_wrangler.toml wrangler.toml
           fi
-          
-          # Clean up temp file
-          rm -f /tmp/worker_name.txt
           
           echo "✅ Updated wrangler.toml"
 
@@ -87,11 +80,11 @@ jobs:
           echo "📋 Updated wrangler.toml content:"
           cat wrangler.toml
           echo ""
-          echo "🔍 Checking for valid name format:"
-          if grep -q '^name = ".*"' wrangler.toml && ! grep -q '***' wrangler.toml; then
-            echo "✅ Worker name properly set in wrangler.toml"
+          echo "🔍 Checking for worker name:"
+          if grep -q "$WORKER_NAME" wrangler.toml; then
+            echo "✅ Worker name found in wrangler.toml"
           else
-            echo "❌ Worker name NOT properly set in wrangler.toml"
+            echo "❌ Worker name NOT found in wrangler.toml"
             echo "Backup content:"
             cat wrangler.toml.backup
             exit 1
@@ -102,7 +95,5 @@ jobs:
 
       - name: Output deployment URL
         run: |
-          # Extract the actual worker name from wrangler.toml to avoid censoring
-          DEPLOYED_NAME=$(grep '^name = ' wrangler.toml | sed 's/name = "\(.*\)"/\1/')
-          echo "🚀 Deployed to: https://$DEPLOYED_NAME.magnusson27.workers.dev"
-          echo "deployment-url=https://$DEPLOYED_NAME.magnusson27.workers.dev" >> $GITHUB_OUTPUT
+          echo "🚀 Deployed to: https://$WORKER_NAME.magnusson27.workers.dev"
+          echo "deployment-url=https://$WORKER_NAME.magnusson27.workers.dev" >> $GITHUB_OUTPUT
