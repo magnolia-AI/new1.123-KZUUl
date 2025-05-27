@@ -215,7 +215,7 @@ export default function Home() {
             viewport={{ once: true }}
             className="max-w-4xl mx-auto text-center"
           >
-            <Card className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 border-white/20 backdrop-blur-sm p-12">
+            <Card className="bg-gradient-to-r from-purple-600 to-pink-600 border-white/20 backdrop-blur-sm p-12">
               <CardContent className="space-y-6">
                 <div className="flex justify-center mb-6">
                   <motion.div
