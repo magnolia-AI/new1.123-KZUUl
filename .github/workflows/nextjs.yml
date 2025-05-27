@@ -1,5 +1,5 @@
 
-# Workflow Version: 2.0.1
+# Workflow Version: 2.0.2
 name: Deploy to Cloudflare Workers
 
 on:
@@ -38,16 +38,57 @@ jobs:
           fi
           echo "✅ Using worker name: $WORKER_NAME"
 
+      - name: Debug wrangler.toml before update
+        run: |
+          echo "📋 Original wrangler.toml content:"
+          cat wrangler.toml || echo "⚠️  wrangler.toml not found"
+          echo ""
+          echo "🔍 Looking for name setting:"
+          grep -n "name" wrangler.toml || echo "⚠️  No 'name' found in wrangler.toml"
+
       - name: Update wrangler.toml with secure worker name
         run: |
-          # Use the secure worker name from secrets
           echo "📝 Updating wrangler.toml with worker name: $WORKER_NAME"
-          sed -i "s/^name = .*/name = "$WORKER_NAME"/" wrangler.toml
-          echo "✅ Updated wrangler.toml successfully"
           
-          # Verify the change was applied
-          echo "📋 Current wrangler.toml name setting:"
-          grep "^name = " wrangler.toml || echo "⚠️  Warning: Could not find name setting in wrangler.toml"
+          # Create a backup
+          cp wrangler.toml wrangler.toml.backup
+          
+          # Try multiple patterns to update the name
+          if grep -q "^name = " wrangler.toml; then
+            echo "Found 'name = ' pattern, updating..."
+            sed -i "s/^name = .*/name = "$WORKER_NAME"/" wrangler.toml
+          elif grep -q "^name:" wrangler.toml; then
+            echo "Found 'name:' pattern, updating..."
+            sed -i "s/^name:.*/name = "$WORKER_NAME"/" wrangler.toml
+          elif grep -q "name" wrangler.toml; then
+            echo "Found 'name' somewhere, trying to replace..."
+            sed -i "s/name = ".*"/name = "$WORKER_NAME"/" wrangler.toml
+            sed -i "s/name = '.*'/name = "$WORKER_NAME"/" wrangler.toml
+            sed -i "s/name: ".*"/name = "$WORKER_NAME"/" wrangler.toml
+            sed -i "s/name: '.*'/name = "$WORKER_NAME"/" wrangler.toml
+          else
+            echo "No name setting found, adding it at the top..."
+            echo "name = "$WORKER_NAME"" > temp_wrangler.toml
+            cat wrangler.toml >> temp_wrangler.toml
+            mv temp_wrangler.toml wrangler.toml
+          fi
+          
+          echo "✅ Updated wrangler.toml"
+
+      - name: Verify wrangler.toml update
+        run: |
+          echo "📋 Updated wrangler.toml content:"
+          cat wrangler.toml
+          echo ""
+          echo "🔍 Checking for worker name:"
+          if grep -q "$WORKER_NAME" wrangler.toml; then
+            echo "✅ Worker name found in wrangler.toml"
+          else
+            echo "❌ Worker name NOT found in wrangler.toml"
+            echo "Backup content:"
+            cat wrangler.toml.backup
+            exit 1
+          fi
 
       - name: Build and Deploy
         run: bun run deploy
