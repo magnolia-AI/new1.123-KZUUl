@@ -1,5 +1,5 @@
 
-# Workflow Version: 1.1.61
+# Workflow Version: 1.1.62
 name: Deploy to Cloudflare Workers
 
 on:
@@ -42,37 +42,74 @@ jobs:
             echo "📦 Building with standard Next.js build..."
             bun run build
           fi
-          
-          # Check if OpenNext output exists
-          if [ ! -f ".open-next/worker.js" ]; then
-            echo "OpenNext worker.js not found. Checking build output..."
-            ls -la .open-next/ || echo "No .open-next directory found"
-            ls -la dist/ || echo "No dist directory found"
-            ls -la out/ || echo "No out directory found"
-            echo "Available files in root:"
-            ls -la
-            exit 1
-          fi
 
       - name: Deploy to Cloudflare Workers
         run: |
           # Clean up worker name by replacing dots with hyphens
           CLEAN_WORKER_NAME=$(echo "${WORKER_NAME}" | sed 's/\./-/g')
           
-          # Determine the correct entry point file
+          # Determine the correct entry point file for OpenNext v3.x
           ENTRY_POINT=""
-          if [ -f ".open-next/worker.js" ]; then
+          ASSETS_DIR=""
+          
+          if [ -d ".open-next/server-functions" ]; then
+            # OpenNext v3.x structure
+            echo "📦 Detected OpenNext v3.x output structure"
+            
+            # Look for the default server function
+            if [ -f ".open-next/server-functions/default/index.mjs" ]; then
+              ENTRY_POINT=".open-next/server-functions/default/index.mjs"
+            elif [ -f ".open-next/server-functions/default/index.js" ]; then
+              ENTRY_POINT=".open-next/server-functions/default/index.js"
+            else
+              echo "❌ No suitable server function found in .open-next/server-functions/default/"
+              ls -la .open-next/server-functions/default/ || echo "Directory not found"
+              exit 1
+            fi
+            
+            # Check for assets
+            if [ -d ".open-next/assets" ]; then
+              ASSETS_DIR=".open-next/assets"
+            fi
+            
+          elif [ -f ".open-next/worker.js" ]; then
+            # OpenNext v2.x structure (legacy)
+            echo "📦 Detected OpenNext v2.x output structure"
             ENTRY_POINT=".open-next/worker.js"
             ASSETS_DIR=".open-next/assets"
+            
           elif [ -f "dist/index.js" ]; then
+            # Standard build output
+            echo "📦 Using standard build output"
             ENTRY_POINT="dist/index.js"
             ASSETS_DIR="dist/assets"
+            
           elif [ -f "out/index.js" ]; then
+            # Alternative build output
+            echo "📦 Using alternative build output"
             ENTRY_POINT="out/index.js"
             ASSETS_DIR="out/assets"
+            
           else
-            echo "❌ No suitable entry point found. Please ensure your project builds correctly."
-            echo "Expected files: .open-next/worker.js, dist/index.js, or out/index.js"
+            echo "❌ No suitable entry point found."
+            echo "Expected files:"
+            echo "  - .open-next/server-functions/default/index.mjs (OpenNext v3.x)"
+            echo "  - .open-next/worker.js (OpenNext v2.x)"
+            echo "  - dist/index.js (standard build)"
+            echo "  - out/index.js (alternative build)"
+            echo ""
+            echo "Available .open-next structure:"
+            ls -la .open-next/ || echo "No .open-next directory found"
+            if [ -d ".open-next/server-functions" ]; then
+              echo ""
+              echo "Server functions:"
+              ls -la .open-next/server-functions/
+              if [ -d ".open-next/server-functions/default" ]; then
+                echo ""
+                echo "Default server function:"
+                ls -la .open-next/server-functions/default/
+              fi
+            fi
             exit 1
           fi
           
@@ -82,6 +119,7 @@ jobs:
           # Deploy with the detected entry point
           if [ -d "$ASSETS_DIR" ]; then
             # Deploy with assets
+            echo "🚀 Deploying with assets..."
             bunx wrangler deploy "$ENTRY_POINT" \
               --config /dev/null \
               --name "${CLEAN_WORKER_NAME}" \
@@ -91,6 +129,7 @@ jobs:
               --minify
           else
             # Deploy without assets
+            echo "🚀 Deploying without assets..."
             bunx wrangler deploy "$ENTRY_POINT" \
               --config /dev/null \
               --name "${CLEAN_WORKER_NAME}" \
