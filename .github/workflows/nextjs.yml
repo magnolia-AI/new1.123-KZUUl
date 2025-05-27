@@ -1,5 +1,5 @@
 
-# Workflow Version: 1.1.64
+# Workflow Version: 2.0.0
 name: Deploy to Cloudflare Workers
 
 on:
@@ -9,7 +9,10 @@ on:
   workflow_dispatch:
 
 env:
-  WORKER_NAME: ${{ github.event.repository.name }}
+  # Use project-specific worker name from secrets for security
+  WORKER_NAME: ${{ secrets.MAGNOLIA_WORKER_NAME }}
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
 jobs:
   deploy:
@@ -26,126 +29,23 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build project with OpenNext
+      - name: Validate worker name
         run: |
-          # Check if project is configured for OpenNext
-          if [ -f "open-next.config.ts" ] || [ -f "open-next.config.js" ]; then
-            echo "📦 OpenNext configuration found, building with OpenNext..."
-            # Install OpenNext if not already installed
-            if ! command -v open-next &> /dev/null; then
-              echo "Installing OpenNext..."
-              bun add -D open-next
-            fi
-            # Build with OpenNext
-            bunx open-next build
-          else
-            echo "📦 Building with standard Next.js build..."
-            bun run build
-          fi
-
-      - name: Deploy to Cloudflare Workers
-        run: |
-          # Clean up worker name: lowercase, replace dots/underscores with hyphens, remove special chars
-          CLEAN_WORKER_NAME=$(echo "${WORKER_NAME}" | tr '[:upper:]' '[:lower:]' | sed 's/[._]/-/g' | sed 's/[^a-z0-9-]//g' | sed 's/--*/-/g' | sed 's/^-\|-$//g')
-          
-          echo "📝 Original worker name: ${WORKER_NAME}"
-          echo "📝 Cleaned worker name: ${CLEAN_WORKER_NAME}"
-          
-          # Determine the correct entry point file for OpenNext v3.x
-          ENTRY_POINT=""
-          ASSETS_DIR=""
-          
-          if [ -d ".open-next/server-functions" ]; then
-            # OpenNext v3.x structure
-            echo "📦 Detected OpenNext v3.x output structure"
-            
-            # Look for the default server function
-            if [ -f ".open-next/server-functions/default/index.mjs" ]; then
-              ENTRY_POINT=".open-next/server-functions/default/index.mjs"
-            elif [ -f ".open-next/server-functions/default/index.js" ]; then
-              ENTRY_POINT=".open-next/server-functions/default/index.js"
-            else
-              echo "❌ No suitable server function found in .open-next/server-functions/default/"
-              ls -la .open-next/server-functions/default/ || echo "Directory not found"
-              exit 1
-            fi
-            
-            # Check for assets
-            if [ -d ".open-next/assets" ]; then
-              ASSETS_DIR=".open-next/assets"
-            fi
-            
-          elif [ -f ".open-next/worker.js" ]; then
-            # OpenNext v2.x structure (legacy)
-            echo "📦 Detected OpenNext v2.x output structure"
-            ENTRY_POINT=".open-next/worker.js"
-            ASSETS_DIR=".open-next/assets"
-            
-          elif [ -f "dist/index.js" ]; then
-            # Standard build output
-            echo "📦 Using standard build output"
-            ENTRY_POINT="dist/index.js"
-            ASSETS_DIR="dist/assets"
-            
-          elif [ -f "out/index.js" ]; then
-            # Alternative build output
-            echo "📦 Using alternative build output"
-            ENTRY_POINT="out/index.js"
-            ASSETS_DIR="out/assets"
-            
-          else
-            echo "❌ No suitable entry point found."
-            echo "Expected files:"
-            echo "  - .open-next/server-functions/default/index.mjs (OpenNext v3.x)"
-            echo "  - .open-next/worker.js (OpenNext v2.x)"
-            echo "  - dist/index.js (standard build)"
-            echo "  - out/index.js (alternative build)"
-            echo ""
-            echo "Available .open-next structure:"
-            ls -la .open-next/ || echo "No .open-next directory found"
-            if [ -d ".open-next/server-functions" ]; then
-              echo ""
-              echo "Server functions:"
-              ls -la .open-next/server-functions/
-              if [ -d ".open-next/server-functions/default" ]; then
-                echo ""
-                echo "Default server function:"
-                ls -la .open-next/server-functions/default/
-              fi
-            fi
+          if [ -z "$WORKER_NAME" ]; then
+            echo "Error: MAGNOLIA_WORKER_NAME secret is not set"
             exit 1
           fi
-          
-          echo "📦 Using entry point: $ENTRY_POINT"
-          echo "📁 Using assets directory: $ASSETS_DIR"
-          
-          # Deploy with the detected entry point
-          if [ -d "$ASSETS_DIR" ]; then
-            # Deploy with assets
-            echo "🚀 Deploying with assets..."
-            bunx wrangler deploy "$ENTRY_POINT" \
-              --config /dev/null \
-              --name "${CLEAN_WORKER_NAME}" \
-              --compatibility-date 2025-03-25 \
-              --compatibility-flags "nodejs_compat" \
-              --assets "$ASSETS_DIR" \
-              --minify
-          else
-            # Deploy without assets
-            echo "🚀 Deploying without assets..."
-            bunx wrangler deploy "$ENTRY_POINT" \
-              --config /dev/null \
-              --name "${CLEAN_WORKER_NAME}" \
-              --compatibility-date 2025-03-25 \
-              --compatibility-flags "nodejs_compat" \
-              --minify
-          fi
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          echo "Deploying to worker: $WORKER_NAME"
+
+      - name: Update wrangler.toml with secure worker name
+        run: |
+          # Use the secure worker name from secrets
+          sed -i "s/^name = .*/name = "${WORKER_NAME}"/" wrangler.toml
+          echo "Updated wrangler.toml with worker name: $WORKER_NAME"
+
+      - name: Build and Deploy
+        run: bun run deploy
 
       - name: Output deployment URL
         run: |
-          # Clean up worker name for URL output too (same cleaning logic)
-          CLEAN_WORKER_NAME=$(echo "${WORKER_NAME}" | tr '[:upper:]' '[:lower:]' | sed 's/[._]/-/g' | sed 's/[^a-z0-9-]//g' | sed 's/--*/-/g' | sed 's/^-\|-$//g')
-          echo "🚀 Deployed to: https://${CLEAN_WORKER_NAME}.magnusson27.workers.dev"
+          echo "🚀 Deployed to: https://${WORKER_NAME}.magnusson27.workers.dev"
