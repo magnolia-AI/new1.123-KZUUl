@@ -1,5 +1,5 @@
 
-# Workflow Version: 2.1.0
+# Workflow Version: 2.2.0
 name: Deploy to Cloudflare Workers
 
 on:
@@ -38,15 +38,13 @@ jobs:
           fi
           echo "✅ Worker name is configured (length: ${#WORKER_NAME})"
 
-      - name: Build project
-        run: bun run build || npx opennextjs-cloudflare build
-
+      # Build and deploy using opennextjs-cloudflare with the worker name override
       - name: Deploy to Cloudflare Workers
         run: |
-          echo "🚀 Deploying with worker name..."
-          # Use wrangler's --name flag to override the worker name
-          # This avoids modifying wrangler.toml and the secret censoring issue
-          bunx wrangler deploy --name "$WORKER_NAME" || wrangler deploy --name "$WORKER_NAME"
+          echo "🚀 Building and deploying with worker name override..."
+          # We use the opennextjs-cloudflare deploy command with wrangler arguments 
+          bunx opennextjs-cloudflare build
+          bunx opennextjs-cloudflare deploy -- --name="$WORKER_NAME"
 
       - name: Output deployment URL
         run: |
