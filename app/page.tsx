@@ -86,9 +86,9 @@ export default function Home() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="text-6xl md:text-8xl font-bold tracking-tight text-white mb-8"
           >
-            Build the
+            Shape
             <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent">
-              {" "}Future
+              {" "}Tomorrow
             </span>
           </motion.h1>
 
@@ -248,4 +248,5 @@ export default function Home() {
     </div>
   )
 }
+
 
