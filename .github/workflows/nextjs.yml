@@ -1,5 +1,5 @@
 
-# Workflow Version: 1.1.5
+# Workflow Version: 1.1.6
 name: Deploy to Cloudflare Workers
 
 on:
@@ -26,22 +26,66 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Build project
-        run: bun run build
+      - name: Build project with OpenNext
+        run: |
+          # Build the Next.js project
+          bun run build
+          
+          # Check if OpenNext output exists
+          if [ ! -f ".open-next/worker.js" ]; then
+            echo "OpenNext worker.js not found. Checking build output..."
+            ls -la .open-next/ || echo "No .open-next directory found"
+            ls -la dist/ || echo "No dist directory found"
+            ls -la out/ || echo "No out directory found"
+            echo "Available files in root:"
+            ls -la
+            exit 1
+          fi
 
       - name: Deploy to Cloudflare Workers
         run: |
           # Clean up worker name by replacing dots with hyphens
           CLEAN_WORKER_NAME=$(echo "${WORKER_NAME}" | sed 's/\./-/g')
           
-          # Deploy directly via CLI without any config file (completely ignore user wrangler.toml)
-          bunx wrangler deploy ".open-next/worker.js" \
-            --config /dev/null \
-            --name "${CLEAN_WORKER_NAME}" \
-            --compatibility-date 2025-03-25 \
-            --compatibility-flags "nodejs_compat" \
-            --assets ".open-next/assets" \
-            --minify
+          # Determine the correct entry point file
+          ENTRY_POINT=""
+          if [ -f ".open-next/worker.js" ]; then
+            ENTRY_POINT=".open-next/worker.js"
+            ASSETS_DIR=".open-next/assets"
+          elif [ -f "dist/index.js" ]; then
+            ENTRY_POINT="dist/index.js"
+            ASSETS_DIR="dist/assets"
+          elif [ -f "out/index.js" ]; then
+            ENTRY_POINT="out/index.js"
+            ASSETS_DIR="out/assets"
+          else
+            echo "❌ No suitable entry point found. Please ensure your project builds correctly."
+            echo "Expected files: .open-next/worker.js, dist/index.js, or out/index.js"
+            exit 1
+          fi
+          
+          echo "📦 Using entry point: $ENTRY_POINT"
+          echo "📁 Using assets directory: $ASSETS_DIR"
+          
+          # Deploy with the detected entry point
+          if [ -d "$ASSETS_DIR" ]; then
+            # Deploy with assets
+            bunx wrangler deploy "$ENTRY_POINT" \
+              --config /dev/null \
+              --name "${CLEAN_WORKER_NAME}" \
+              --compatibility-date 2025-03-25 \
+              --compatibility-flags "nodejs_compat" \
+              --assets "$ASSETS_DIR" \
+              --minify
+          else
+            # Deploy without assets
+            bunx wrangler deploy "$ENTRY_POINT" \
+              --config /dev/null \
+              --name "${CLEAN_WORKER_NAME}" \
+              --compatibility-date 2025-03-25 \
+              --compatibility-flags "nodejs_compat" \
+              --minify
+          fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
