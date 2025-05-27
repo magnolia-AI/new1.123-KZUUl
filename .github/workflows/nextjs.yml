@@ -1,5 +1,5 @@
 
-# Workflow Version: 1.1.62
+# Workflow Version: 1.1.63
 name: Deploy to Cloudflare Workers
 
 on:
@@ -45,8 +45,11 @@ jobs:
 
       - name: Deploy to Cloudflare Workers
         run: |
-          # Clean up worker name by replacing dots with hyphens
-          CLEAN_WORKER_NAME=$(echo "${WORKER_NAME}" | sed 's/\./-/g')
+          # Clean up worker name: lowercase, replace dots/underscores with hyphens, remove special chars
+          CLEAN_WORKER_NAME=$(echo "${WORKER_NAME}" | tr '[:upper:]' '[:lower:]' | sed 's/[._]/-/g' | sed 's/[^a-z0-9-]//g' | sed 's/--*/-/g' | sed 's/^-\|-$//g')
+          
+          echo "📝 Original worker name: ${WORKER_NAME}"
+          echo "📝 Cleaned worker name: ${CLEAN_WORKER_NAME}"
           
           # Determine the correct entry point file for OpenNext v3.x
           ENTRY_POINT=""
@@ -125,6 +128,7 @@ jobs:
               --name "${CLEAN_WORKER_NAME}" \
               --compatibility-date 2025-03-25 \
               --compatibility-flags "nodejs_compat" \
+              --format modules \
               --assets "$ASSETS_DIR" \
               --minify
           else
@@ -135,6 +139,7 @@ jobs:
               --name "${CLEAN_WORKER_NAME}" \
               --compatibility-date 2025-03-25 \
               --compatibility-flags "nodejs_compat" \
+              --format modules \
               --minify
           fi
         env:
@@ -143,6 +148,6 @@ jobs:
 
       - name: Output deployment URL
         run: |
-          # Clean up worker name for URL output too
-          CLEAN_WORKER_NAME=$(echo "${WORKER_NAME}" | sed 's/\./-/g')
+          # Clean up worker name for URL output too (same cleaning logic)
+          CLEAN_WORKER_NAME=$(echo "${WORKER_NAME}" | tr '[:upper:]' '[:lower:]' | sed 's/[._]/-/g' | sed 's/[^a-z0-9-]//g' | sed 's/--*/-/g' | sed 's/^-\|-$//g')
           echo "🚀 Deployed to: https://${CLEAN_WORKER_NAME}.magnusson27.workers.dev"
