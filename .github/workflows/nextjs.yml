@@ -1,5 +1,5 @@
 
-# Workflow Version: 1.1.63
+# Workflow Version: 1.1.64
 name: Deploy to Cloudflare Workers
 
 on:
@@ -128,7 +128,6 @@ jobs:
               --name "${CLEAN_WORKER_NAME}" \
               --compatibility-date 2025-03-25 \
               --compatibility-flags "nodejs_compat" \
-              --format modules \
               --assets "$ASSETS_DIR" \
               --minify
           else
@@ -139,7 +138,6 @@ jobs:
               --name "${CLEAN_WORKER_NAME}" \
               --compatibility-date 2025-03-25 \
               --compatibility-flags "nodejs_compat" \
-              --format modules \
               --minify
           fi
         env:
