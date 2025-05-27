@@ -1,5 +1,5 @@
 
-# Workflow Version: 1.1.6
+# Workflow Version: 1.1.61
 name: Deploy to Cloudflare Workers
 
 on:
@@ -28,8 +28,20 @@ jobs:
 
       - name: Build project with OpenNext
         run: |
-          # Build the Next.js project
-          bun run build
+          # Check if project is configured for OpenNext
+          if [ -f "open-next.config.ts" ] || [ -f "open-next.config.js" ]; then
+            echo "📦 OpenNext configuration found, building with OpenNext..."
+            # Install OpenNext if not already installed
+            if ! command -v open-next &> /dev/null; then
+              echo "Installing OpenNext..."
+              bun add -D open-next
+            fi
+            # Build with OpenNext
+            bunx open-next build
+          else
+            echo "📦 Building with standard Next.js build..."
+            bun run build
+          fi
           
           # Check if OpenNext output exists
           if [ ! -f ".open-next/worker.js" ]; then
