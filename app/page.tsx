@@ -236,7 +236,7 @@ export default function Home() {
                   whileTap={{ scale: 0.95 }}
                 >
                   <Button size="lg" className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-0 px-12 py-6 text-lg">
-                    Start Building Now
+                    Start Your Journey
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </motion.div>
@@ -245,8 +245,26 @@ export default function Home() {
           </motion.div>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="relative z-10 py-8 border-t border-white/10">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+            className="text-center"
+          >
+            <p className="text-gray-400 text-sm">
+              © 2025 Shape Tomorrow. Crafted with passion for the future.
+            </p>
+          </motion.div>
+        </div>
+      </footer>
     </div>
   )
 }
+
 
 
